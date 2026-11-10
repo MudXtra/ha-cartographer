@@ -7,7 +7,7 @@ It shows where everyone is on a full-screen map with a bottom sheet (Drivers, Tr
 ## Setup
 
 1. In Home Assistant open **Settings -> Apps -> Install app**, open the menu (three dots) and choose **Repositories**,
-   and add `https://github.com/Versile2/ha-cartographer`.
+   and add `https://github.com/MudXtra/ha-cartographer`.
 2. Install **HA Cartographer** and press **Start**.
 3. Switch on **Show in sidebar** on the app's page. Home Assistant keeps this as a per-install setting, so the app
    cannot turn it on by itself. Optionally switch on **Watchdog** too.

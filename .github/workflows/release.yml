@@ -1,6 +1,6 @@
 name: release
 # 03 section 7.6, S16a. Runs automatically on every push to main (that is, when a PR is merged) and can also be run by hand: Actions -> release -> Run workflow,
-# on main. It reads `version` (V) from realm/config.yaml, builds the image and pushes ghcr.io/versile2/ha-cartographer:V, and only after that push succeeded
+# on main. It reads `version` (V) from realm/config.yaml, builds the image and pushes ghcr.io/mudxtra/ha-cartographer:V, and only after that push succeeded
 # creates the tag vV on that commit and a GitHub release vV whose notes are the realm/CHANGELOG.md section for V followed by notes generated from the merged PRs
 # (.github/release.yml categories). So a PR that bumps the version and adds the CHANGELOG section releases itself when it is merged; the HA store offers V as
 # soon as main has it, and the image follows within minutes. If the tag vV already exists, a push run SKIPS cleanly (notice and job summary: bump the version
@@ -69,14 +69,14 @@ jobs:
         if: steps.v.outputs.skip != 'true'
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/versile2/ha-cartographer
+          images: ghcr.io/mudxtra/ha-cartographer
           tags: type=raw,value=${{ steps.v.outputs.version }}
           flavor: latest=false                  # no "latest" tag: the Supervisor never uses it
       - name: Exactly one tag, the version (no latest)
         if: steps.v.outputs.skip != 'true'
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
-          WANT: ghcr.io/versile2/ha-cartographer:${{ steps.v.outputs.version }}
+          WANT: ghcr.io/mudxtra/ha-cartographer:${{ steps.v.outputs.version }}
         run: |
           if [[ $TAGS != "$WANT" ]]; then
             echo "::error::the image tags are '$TAGS', expected only '$WANT'"
@@ -102,13 +102,13 @@ jobs:
       - name: Anonymous pull check
         if: steps.v.outputs.skip != 'true'
         env:
-          IMAGE: ghcr.io/versile2/ha-cartographer:${{ steps.v.outputs.version }}
+          IMAGE: ghcr.io/mudxtra/ha-cartographer:${{ steps.v.outputs.version }}
         run: |
           docker logout ghcr.io
           if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
             echo "Anonymous pull works." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "::notice title=GHCR package is private::Make ghcr.io/versile2/ha-cartographer public once in the GitHub UI (03 section 6.7); until then the Supervisor cannot pull it without registry credentials."
+            echo "::notice title=GHCR package is private::Make ghcr.io/mudxtra/ha-cartographer public once in the GitHub UI (03 section 6.7); until then the Supervisor cannot pull it without registry credentials."
           fi
       - name: Tag and publish the release (after the image is pushed)
         if: steps.v.outputs.skip != 'true'
@@ -120,4 +120,4 @@ jobs:
           # previous release tag, grouped by .github/release.yml. gh creates the tag vV on $GITHUB_SHA.
           awk -v v="$V" 'BEGIN{h="## " v} $0==h || index($0,h " ")==1 {on=1; next} /^## /{on=0} on' realm/CHANGELOG.md > "$RUNNER_TEMP/changelog-section.md"
           gh release create "v$V" --target "$GITHUB_SHA" --title "v$V" --notes-file "$RUNNER_TEMP/changelog-section.md" --generate-notes
-          echo "Released v$V: image ghcr.io/versile2/ha-cartographer:$V, tag and release created." >> "$GITHUB_STEP_SUMMARY"
+          echo "Released v$V: image ghcr.io/mudxtra/ha-cartographer:$V, tag and release created." >> "$GITHUB_STEP_SUMMARY"

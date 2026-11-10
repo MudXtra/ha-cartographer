@@ -440,8 +440,8 @@ test.describe('[GAL] screenshot gallery: the Layers popover and the Settings dia
     const issue = dialog.getByTestId('settings-report-issue');
     const star = dialog.getByTestId('settings-star');
     await star.scrollIntoViewIfNeeded();
-    await expect(issue, 'Report an issue opens the issue chooser').toHaveAttribute('href', 'https://github.com/Versile2/ha-cartographer/issues/new/choose');
-    await expect(star, 'Star this project opens the repository page').toHaveAttribute('href', 'https://github.com/Versile2/ha-cartographer');
+    await expect(issue, 'Report an issue opens the issue chooser').toHaveAttribute('href', 'https://github.com/MudXtra/ha-cartographer/issues/new/choose');
+    await expect(star, 'Star this project opens the repository page').toHaveAttribute('href', 'https://github.com/MudXtra/ha-cartographer');
     for (const link of [issue, star]) {
       await expect(link).toHaveAttribute('target', '_blank');
       await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
