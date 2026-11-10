@@ -24,7 +24,7 @@ never in this repository.
 | Map | MapLibre GL JS 6.11.2, vendored, driven through JS interop; tiles are fetched by the browser |
 | Home Assistant access | WebSocket and REST through the Supervisor proxy (`homeassistant_api`) |
 | History | SQLite under `/data`, schema as plain SQL scripts keyed on `PRAGMA user_version`; EF Core is only a mapper |
-| Packaging | One image per version, `ghcr.io/versile2/ha-cartographer:<version>`, add-on slug `realm`, Ingress on port 8099 |
+| Packaging | One image per version, `ghcr.io/mudxtra/ha-cartographer:<version>`, add-on slug `realm`, Ingress on port 8099 |
 
 Per-frame work (pins, bubbles, camera) is JavaScript; the server sends immutable view-model payloads and receives
 discrete events. The app runs in one of two modes from the same UI: `Live` (Home Assistant plus SQLite) and `Demo`
@@ -85,5 +85,5 @@ whose `realm/config.yaml` has a `version` that has no tag yet (and whose CHANGEL
 the image, then creates the tag `vX.Y.Z` and the GitHub release (CHANGELOG section plus notes generated from the merged PRs). A merge
 that leaves the version unchanged releases nothing. Actions -> release -> Run workflow re-runs it by hand. The store
 offers the new version as soon as main has it, before the image is pushed; an update attempted in that window fails to pull and
-succeeds on retry. Install in Home Assistant by adding `https://github.com/Versile2/ha-cartographer` as an app
+succeeds on retry. Install in Home Assistant by adding `https://github.com/MudXtra/ha-cartographer` as an app
 repository.

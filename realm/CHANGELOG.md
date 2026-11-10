@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.3
+
+### Changed
+
+- **New home: MudXtra.** The repository moved to `https://github.com/MudXtra/ha-cartographer` and the image is now
+  `ghcr.io/mudxtra/ha-cartographer`. Nothing in the app changed. Existing installs keep working: the old repository address
+  redirects, and the Supervisor pulls this and later versions from the new image. To be safe, replace the repository address in
+  **Settings -> Apps -> Install app -> Repositories** with the new one.
+
 ## 0.3.2
 
 ### Fixed

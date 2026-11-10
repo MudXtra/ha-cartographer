@@ -1,11 +1,11 @@
 name: "HA Cartographer"
-version: "0.3.2"                  # equals the image tag; merging a PR to main with a new version releases it automatically (image, tag v<version>, GitHub release; Actions -> release -> Run workflow re-runs it by hand); a CHANGELOG.md section of the same name must exist
+version: "0.3.3"                  # equals the image tag; merging a PR to main with a new version releases it automatically (image, tag v<version>, GitHub release; Actions -> release -> Run workflow re-runs it by hand); a CHANGELOG.md section of the same name must exist
 slug: realm
 description: "A Life360-style family map with driving reports, inside Home Assistant."
-url: "https://github.com/Versile2/ha-cartographer"
+url: "https://github.com/MudXtra/ha-cartographer"
 arch:
   - amd64
-image: "ghcr.io/versile2/ha-cartographer"   # no tag (the Supervisor rejects one); it pulls ghcr.io/versile2/ha-cartographer:<version>
+image: "ghcr.io/mudxtra/ha-cartographer"   # no tag (the Supervisor rejects one); it pulls ghcr.io/mudxtra/ha-cartographer:<version>
 stage: experimental
 startup: application
 boot: auto

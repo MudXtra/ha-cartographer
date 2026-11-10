@@ -9,9 +9,9 @@ The text posted to the Home Assistant community forum, **Share your Projects!** 
 ```markdown
 # HA Cartographer — a Life360-style family map inside Home Assistant (testers wanted)
 
-Hi all! I've been building **HA Cartographer**, a Home Assistant add-on that gives you a Life360-style family map, location history and weekly driving reports, all inside Home Assistant and all stored on your own box. It's at **0.3.2 (experimental)** and I'm looking for a handful of testers before calling it stable.
+Hi all! I've been building **HA Cartographer**, a Home Assistant add-on that gives you a Life360-style family map, location history and weekly driving reports, all inside Home Assistant and all stored on your own box. It's at **0.3.3 (experimental)** and I'm looking for a handful of testers before calling it stable.
 
-![Family map](https://raw.githubusercontent.com/Versile2/ha-cartographer/main/assets/screenshots/forum-map.png)
+![Family map](https://raw.githubusercontent.com/MudXtra/ha-cartographer/main/assets/screenshots/forum-map.png)
 
 ## What it does
 
@@ -22,7 +22,7 @@ Hi all! I've been building **HA Cartographer**, a Home Assistant add-on that giv
 - **Who's on the map**: every person and GPS tracker from Home Assistant and Life360; drag each into People, Trackers or Not tracked, rename it, recolour it, change its icon.
 - **Private**: no cloud and no account. Positions stay in the add-on's own database (100–400 days, your choice).
 
-![History](https://raw.githubusercontent.com/Versile2/ha-cartographer/main/assets/screenshots/forum-history-day.png) ![Driving report](https://raw.githubusercontent.com/Versile2/ha-cartographer/main/assets/screenshots/forum-driving.png) ![Who's on the map](https://raw.githubusercontent.com/Versile2/ha-cartographer/main/assets/screenshots/forum-settings-roster.png)
+![History](https://raw.githubusercontent.com/MudXtra/ha-cartographer/main/assets/screenshots/forum-history-day.png) ![Driving report](https://raw.githubusercontent.com/MudXtra/ha-cartographer/main/assets/screenshots/forum-driving.png) ![Who's on the map](https://raw.githubusercontent.com/MudXtra/ha-cartographer/main/assets/screenshots/forum-settings-roster.png)
 
 ## Requirements
 
@@ -32,7 +32,7 @@ Hi all! I've been building **HA Cartographer**, a Home Assistant add-on that giv
 
 ## Install
 
-1. **Settings → Apps (Add-ons) → Add-on store → ⋮ → Repositories**, add `https://github.com/Versile2/ha-cartographer`.
+1. **Settings → Apps (Add-ons) → Add-on store → ⋮ → Repositories**, add `https://github.com/MudXtra/ha-cartographer`.
 2. Install **HA Cartographer**.
 3. Optional: **Configuration → Demo mode** on, to look around with a fictional family first.
 4. **Start**, switch on **Show in sidebar**, and open **The Realm** from the sidebar.
@@ -48,7 +48,7 @@ Hi all! I've been building **HA Cartographer**, a Home Assistant add-on that giv
 
 Please report through **Settings → About → Report an issue** in the app (it opens GitHub issues) or reply here. Screenshots help a lot.
 
-Repo, docs and changelog: https://github.com/Versile2/ha-cartographer
+Repo, docs and changelog: https://github.com/MudXtra/ha-cartographer
 
 *Not affiliated with Life360, Nabu Casa or the Open Home Foundation. Screenshots use the built-in demo family.*
 ```

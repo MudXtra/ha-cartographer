@@ -4,7 +4,7 @@
 
 HA Cartographer is a Home Assistant add-on that gives you a Life360-style family map inside Home Assistant: who is where, where they have been, and how they drive. It is built for households that already track phones with the Home Assistant companion app or Home Assistant's Life360 integration and want one good map instead of the built-in one plus a separate app.
 
-It runs on your own Home Assistant box, opens from the sidebar (as "The Realm"), and keeps every position on that box. Current version: 0.3.2, marked experimental.
+It runs on your own Home Assistant box, opens from the sidebar (as "The Realm"), and keeps every position on that box. Current version: 0.3.3, marked experimental.
 
 ## What it does
 
@@ -52,7 +52,7 @@ It is also built to be easy on a phone: one-tap sheet, 48 px touch targets, scre
 
 **Needs:** Home Assistant OS or Supervised (add-ons), an amd64 (x86-64) machine, and at least one tracked phone (companion app or the Life360 integration). Raspberry Pi / ARM is not built yet.
 
-1. Settings → Apps (Add-ons) → Add-on store → ⋮ → **Repositories**, add `https://github.com/Versile2/ha-cartographer`.
+1. Settings → Apps (Add-ons) → Add-on store → ⋮ → **Repositories**, add `https://github.com/MudXtra/ha-cartographer`.
 2. Find **HA Cartographer** in the store and press **Install**.
 3. Optional: in **Configuration**, turn on **Demo mode** to look around with a fictional family first.
 4. Press **Start**, turn on **Show in sidebar**, then open **The Realm** from the sidebar.
@@ -60,6 +60,6 @@ It is also built to be easy on a phone: one-tap sheet, 48 px touch targets, scre
 
 The add-on has seven options: Demo mode, Allow demo link, Show Add buttons, Log level, Driving week start, Speeding threshold, and history length (100–400 days).
 
-**Status:** experimental, released through GitHub with automatic builds; every change runs about 3,000 automated tests plus browser tests. Bugs and ideas: [GitHub issues](https://github.com/Versile2/ha-cartographer/issues). Not affiliated with Life360, Nabu Casa or the Open Home Foundation.
+**Status:** experimental, released through GitHub with automatic builds; every change runs about 3,000 automated tests plus browser tests. Bugs and ideas: [GitHub issues](https://github.com/MudXtra/ha-cartographer/issues). Not affiliated with Life360, Nabu Casa or the Open Home Foundation.
 
-See also: [Getting started (plain-language guide)](GETTING-STARTED.md) · [Releases and changelog](https://github.com/Versile2/ha-cartographer/releases)
+See also: [Getting started (plain-language guide)](GETTING-STARTED.md) · [Releases and changelog](https://github.com/MudXtra/ha-cartographer/releases)

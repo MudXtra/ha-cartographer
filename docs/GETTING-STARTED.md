@@ -24,7 +24,7 @@ You are telling Home Assistant where to find the app, then installing it like an
 
 1. In Home Assistant, open **Settings → Apps** (older versions: **Add-ons**).
 2. Press **Add-on store** (bottom right), then the **⋮** menu (top right), then **Repositories**.
-3. Paste `https://github.com/Versile2/ha-cartographer` and press **Add**. Close the box.
+3. Paste `https://github.com/MudXtra/ha-cartographer` and press **Add**. Close the box.
 4. Scroll down the store until you see **HA Cartographer**. Tap it and press **Install**. Wait a minute or two.
 5. Want to look before using your real family? Open the **Configuration** tab, switch on **Demo mode** and press **Save**. (Turn it off later the same way.)
 6. Back on the **Info** tab: press **Start**, then switch on **Show in sidebar**.
