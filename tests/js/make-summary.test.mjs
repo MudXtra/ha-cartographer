@@ -134,12 +134,12 @@ test('header: branch, sha, run and url come from the GitHub variables', () => {
   const run = summarize({
     files: { 'dotnet/errors.log': '' },
     needs: NEEDS_OK,
-    env: { GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'Versile2/ha-cartographer', GITHUB_RUN_ID: '555' },
+    env: { GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'MudXtra/ha-cartographer', GITHUB_RUN_ID: '555' },
   });
   assert.match(run.summary, /^- branch: slice\/S0-skeleton$/m);
   assert.match(run.summary, /^- sha: abcdef0123456789abcdef0123456789abcdef01$/m);
   assert.match(run.summary, /^- run: 7$/m);
-  assert.match(run.summary, /^- url: https:\/\/github\.com\/Versile2\/ha-cartographer\/actions\/runs\/555$/m);
+  assert.match(run.summary, /^- url: https:\/\/github\.com\/MudXtra\/ha-cartographer\/actions\/runs\/555$/m);
 });
 
 test('every input absent: still writes a SUMMARY.md (failure, nothing found), exit 0', () => {
@@ -291,12 +291,12 @@ test('guards: the guards job failed without a FAIL line (crash, no log): the why
   const crashed = summarize({
     files: { 'guards/guards.log': 'file:///w/tools/ci/guards.mjs:10\nTypeError: boom\n    at run (guards.mjs:10:3)\n' },
     needs: guardsNeeds('failure', 'skipped'),
-    env: { GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'Versile2/ha-cartographer', GITHUB_RUN_ID: '9' },
+    env: { GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'MudXtra/ha-cartographer', GITHUB_RUN_ID: '9' },
   });
   assert.match(crashed.summary, /^- why: guards failed: unknown \(guards\.log holds no FAIL line\)$/m);
   assert.match(section(crashed.summary, 'Guards'), /TypeError: boom/, 'what the script printed is shown as it is');
   assert.match(section(crashed.summary, 'Guards'), /^PASS: 0 of 0 guards\.$/m);
-  assert.match(section(crashed.summary, 'Notes'), /raw job log of the workflow run \(https:\/\/github\.com\/Versile2\/ha-cartographer\/actions\/runs\/9\)/);
+  assert.match(section(crashed.summary, 'Notes'), /raw job log of the workflow run \(https:\/\/github\.com\/MudXtra\/ha-cartographer\/actions\/runs\/9\)/);
 
   const noLog = summarize({ needs: guardsNeeds('failure', 'skipped') });
   assert.match(noLog.summary, /^- why: guards failed: unknown \(no guards\.log was found\)$/m);
@@ -474,11 +474,11 @@ test('docker smoke: items that were skipped because the container never started 
 });
 
 test('docker smoke: no smoke.json. A failed or succeeded job is a failure with a pointer; a skipped job and a missing --needs give no section', () => {
-  const env = { GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'Versile2/ha-cartographer', GITHUB_RUN_ID: '12' };
+  const env = { GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'MudXtra/ha-cartographer', GITHUB_RUN_ID: '12' };
   const failed = summarize({ files: { 'dotnet/errors.log': '' }, needs: smokeNeeds('failure'), env });
   assert.match(failed.summary, /^- result: failure$/m);
   assert.match(failed.summary, /^- why: job docker-smoke: failure$/m);
-  assert.match(section(failed.summary, 'Docker smoke'), /^No smoke\.json was found: the image build or the smoke script stopped before it wrote one\. The cause is in the raw job log of the workflow run \(https:\/\/github\.com\/Versile2\/ha-cartographer\/actions\/runs\/12\)\.$/m);
+  assert.match(section(failed.summary, 'Docker smoke'), /^No smoke\.json was found: the image build or the smoke script stopped before it wrote one\. The cause is in the raw job log of the workflow run \(https:\/\/github\.com\/MudXtra\/ha-cartographer\/actions\/runs\/12\)\.$/m);
 
   const succeeded = summarize({ files: { 'dotnet/errors.log': '' }, needs: smokeNeeds('success') });
   assert.match(succeeded.summary, /^- why: job docker-smoke succeeded but left no smoke\.json$/m);

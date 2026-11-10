@@ -113,7 +113,7 @@ public sealed class SettingsDialogTests : ComponentTestBase
         // D105: Report an issue and Star this project follow Diagnostics: three links in About, the two new ones absolute, in a new tab, with no opener.
         var links = about.QuerySelectorAll("a[href]");
         Assert.Equal(
-            new[] { "diagnostics.json", "https://github.com/Versile2/ha-cartographer/issues/new/choose", "https://github.com/Versile2/ha-cartographer" },
+            new[] { "diagnostics.json", "https://github.com/MudXtra/ha-cartographer/issues/new/choose", "https://github.com/MudXtra/ha-cartographer" },
             links.Select(l => l.GetAttribute("href")).ToArray());
         Assert.Equal(3, cut.FindAll("a[href]").Count);
         foreach (var external in links.Skip(1))

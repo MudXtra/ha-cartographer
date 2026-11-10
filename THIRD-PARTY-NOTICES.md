@@ -1,6 +1,6 @@
 # Third-party notices
 
-HA Cartographer's own code is MIT-licensed (see [LICENSE](LICENSE)). This repository and the image `ghcr.io/versile2/ha-cartographer` also contain the components listed here, each under its own licence. This file gives the notices those licences ask for. In the image it sits at `/app/THIRD-PARTY-NOTICES.md`, beside `/app/LICENSE` and the licence texts in `/app/LICENSES/`.
+HA Cartographer's own code is MIT-licensed (see [LICENSE](LICENSE)). This repository and the image `ghcr.io/mudxtra/ha-cartographer` also contain the components listed here, each under its own licence. This file gives the notices those licences ask for. In the image it sits at `/app/THIRD-PARTY-NOTICES.md`, beside `/app/LICENSE` and the licence texts in `/app/LICENSES/`.
 
 `realm/icon.png` and `realm/logo.png` are original artwork created for this project (not derived from third-party artwork) and are covered by the project's MIT licence.
 
@@ -10,7 +10,7 @@ Versions are those of the packages and files the image is built from (`Directory
 
 | Component | Version | Licence | Where it is |
 |---|---|---|---|
-| HA Cartographer (this project) | 0.3.2 | MIT | [LICENSE](LICENSE) |
+| HA Cartographer (this project) | 0.3.3 | MIT | [LICENSE](LICENSE) |
 | MapLibre GL JS | 6.11.2 | BSD-3-Clause (its licence file also covers mapbox-gl-js up to v1.13, glfx.js and d3-color) | `src/Realm.Web/wwwroot/lib/maplibre-gl/`, image |
 | Material Design icons (six glyphs) | n/a | Apache-2.0 | `src/Realm.Web/wwwroot/js/realmMap.js`, image |
 | Material Design icons (the History screen: stay and end-of-day markers) | n/a | Apache-2.0 | `src/Realm.Web/wwwroot/js/historyMap.js`, image |
