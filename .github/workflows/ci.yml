@@ -1,6 +1,7 @@
 name: ci
 on:
   push: { branches-ignore: [ci-artifacts], tags-ignore: ["**"] }
+  pull_request: { branches: [main] }             # fork pull requests into MudXtra: read-only token, no secrets, publish-ci skipped
   workflow_dispatch:
 permissions: { contents: read }
 concurrency: { group: "ci-${{ github.ref }}", cancel-in-progress: true }
@@ -159,7 +160,7 @@ jobs:
 
   publish-ci:                                     # 7.4
     needs: [guards, dotnet, js, docker-smoke, e2e]
-    if: ${{ always() && !cancelled() }}
+    if: ${{ always() && !cancelled() && github.event_name != 'pull_request' }}   # a pull request (often from a fork) gets a read-only token and cannot push ci-artifacts
     runs-on: ubuntu-latest
     permissions: { contents: write }
     # No job-level concurrency here on purpose: GitHub keeps one running and ONE pending job per group and cancels the
