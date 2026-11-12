@@ -419,6 +419,27 @@ export function readSheet() {
 
 // ---- S7b (selection header focus), S15 (HA bridge, clipboard) add their exports and state below this line ---------------------------------------
 
+// ---- clipboard (0.3.4): the person detail's Copy address button ------------------------------------------------------------------------------
+// Only the asynchronous Clipboard API, feature-detected: it needs a secure context, and the browser, a permission or an embedding WebView can still
+// refuse it. No execCommand fallback: a copy that does not happen is reported, and the address stays on screen to select by hand.
+
+/**
+ * Writes `text` to the clipboard. True only once the browser accepted it; false when there is no clipboard to write to or it refused. Never rejects.
+ * @param {unknown} text
+ * @param {{ writeText?: (text: string) => Promise<void> } | undefined} [clipboard] the browser's `navigator.clipboard` (the node tests pass a fake)
+ * @returns {Promise<boolean>}
+ */
+export async function copyText(text, clipboard = globalThis.navigator?.clipboard) {
+  if (typeof text !== 'string' || text.length === 0) return false;
+  if (typeof clipboard?.writeText !== 'function') return false;
+  try {
+    await clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---- S8c: history depth tokens and Escape (03 sections 3.7 and 4.8, 01 sections 2.2 and 5.7) -----------------------------------------------------
 // One history entry per level of depth (`#r1`, `#r2`), so the Android Back gesture steps through the sheet and the overlays instead of leaving the app. C# decides the
 // depth and calls `history.setDepth(n)`; the script pushes the missing entries or goes back by the surplus, and tells C# about a Back (or Forward) it did not cause itself.

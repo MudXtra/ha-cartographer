@@ -473,6 +473,44 @@ test.describe('S8c: selecting from the lists', () => {
     await expect(page.locator('.realm-detail').getByText(/timeline|today/i), 'no Today timeline').toHaveCount(0);
   });
 
+  // 0.3.4: the Copy address button of the member detail. Reached with the keyboard (the next stop after the back arrow), Enter and Space copy the cast's full address to the
+  // clipboard (read back from the page, so the browser accepted it), "Address copied" shows and goes, and the address stays on screen as selectable text.
+  test('[0.3.4] Copy address: a 48 px button after the address, reached with Tab; Enter and Space put the full address on the clipboard and say Address copied, briefly', { tag: ['@phone'] }, async ({ page, context }) => {
+    const jester = castMember(loadDemoCast(), 'jester');
+    expect(jester.address, 'the cast gives Cass an address').toBeTruthy();
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await openListWithMap(page, 'drivers');
+    await row(page, 'member', 'jester').click();
+    await expectSelectedAtPeek(page, 'Cass selected from his row');
+    await openDetail(page, 'after the handle tap');
+
+    const address = page.locator('.realm-detail-address');
+    const copy = page.getByRole('button', { name: 'Copy address' });
+    const status = page.getByTestId('detail-copy-status');
+    await expect(address, 'the address is still shown').toHaveText(jester.address ?? '');
+    await expect(address, 'and still selectable').toHaveCSS('user-select', 'text');
+    await expect(copy, 'one Copy address button').toHaveCount(1);
+    const box = await copy.boundingBox();
+    expect(Math.min(box?.width ?? 0, box?.height ?? 0), 'the button is at least a 48 px target').toBeGreaterThanOrEqual(TARGET_MIN - SLACK);
+    await expect(status, 'the polite live region is there before anything is said').toHaveAttribute('role', 'status');
+    await expect(status, 'nothing said yet').toHaveText('');
+
+    await page.getByTestId('detail-back').focus();
+    await page.keyboard.press('Tab');
+    await expect(copy, 'Tab after the back arrow reaches Copy address').toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect(status, 'Enter copies').toHaveText('Address copied');
+    expect(await page.evaluate(() => navigator.clipboard.readText()), 'the clipboard holds the full address').toBe(jester.address);
+    await expect(copy, 'the focus stays on the button').toBeFocused();
+    await expect(status, 'the feedback is brief').toHaveText('', { timeout: 5_000 });
+
+    await page.evaluate(() => navigator.clipboard.writeText(''));
+    await page.keyboard.press('Space');
+    await expect(status, 'Space copies too').toHaveText('Address copied');
+    expect(await page.evaluate(() => navigator.clipboard.readText()), 'the clipboard holds the full address again').toBe(jester.address);
+  });
+
   // [AC-30] D106: nothing is said twice. Dara is stale and far away: her freshness line shows once (in the status card), and her address is not repeated under the card's title.
   test('[AC-30] a stale member\'s detail says the freshness line and the place once', { tag: ['@phone'] }, async ({ page }) => {
     await openListWithMap(page, 'drivers');
