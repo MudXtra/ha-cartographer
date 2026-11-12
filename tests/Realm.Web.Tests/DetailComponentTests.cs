@@ -369,6 +369,45 @@ public sealed class DetailComponentTests : ComponentTestBase
         Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent);
     }
 
+    [Fact]
+    public async Task AnOlderCopy_ThatAnswersLast_DoesNotReplaceTheNewerAnswer()
+    {
+        var cass = Cass();
+        var moved = cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" };
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        var first = module.Setup<bool>("copyText", invocation => Equals(invocation.Arguments[0], cass.FullAddress));
+        var second = module.Setup<bool>("copyText", invocation => Equals(invocation.Arguments[0], moved.FullAddress));
+        var cut = RenderMember(cass);
+
+        var firstClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        cut.Render(parameters => parameters.Add(p => p.Member, moved));
+        var secondClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        second.SetResult(false);
+        await secondClick;
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent));
+        first.SetResult(true);
+        await firstClick;
+
+        Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent);
+        Assert.Null(cut.Find(CopySel).GetAttribute("data-copied"));
+        Assert.Equal(moved.FullAddress, Assert.Single(cut.FindAll(".realm-detail-address")).TextContent);
+    }
+
+    [Fact]
+    public async Task ARefusedCopy_IsForgotten_WhenTheAddressChangesAndComesBack()
+    {
+        var cass = Cass();
+        ClipboardAnswers(accepted: false);
+        var cut = RenderMember(cass);
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent));
+
+        cut.Render(parameters => parameters.Add(p => p.Member, cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" }));
+        cut.Render(parameters => parameters.Add(p => p.Member, cass));
+
+        Assert.Equal(string.Empty, cut.Find(CopyStatusSel).TextContent);
+    }
+
     [Fact(DisplayName = "Dara's address is already her status line: the copy button stays, labelled, and her address is not written a second time")]
     public async Task AnAddressTheStatusLineAlreadySays_KeepsALabelledCopyButton_WithoutRepeatingIt()
     {

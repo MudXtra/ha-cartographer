@@ -30,7 +30,7 @@
     var card = SelectionHeaderFormatter.MemberCard(Member, row, Facts);
     var address = SelectionHeaderFormatter.MemberAddress(Member, row.StatusLine);
     var copyValue = string.IsNullOrWhiteSpace(Member.FullAddress) ? null : Member.FullAddress;
-    bool? copied = _copy is { } copy && copy.MemberId == Member.Id && copy.Address == copyValue ? copy.Accepted : null;
+    var copied = _copied;
     var colorStyle = row.Color is { } hex ? "--realm-row-color:" + hex : null;
 }
 <section class="realm-detail realm-detail--member" aria-labelledby="realm-detail-title" aria-describedby="realm-detail-status">
@@ -170,8 +170,10 @@
     private double? _topSpeedMps;
     private string? _loadedFor;
     private bool _disposed;
-    private CopyResult? _copy;
+    private bool? _copied;
     private CancellationTokenSource? _copyReset;
+    private int _copyAttempt;
+    private string? _copyFor;
 
     // How long "Address copied" shows.
     private static readonly TimeSpan CopiedFor = TimeSpan.FromSeconds(2);
@@ -211,6 +213,14 @@
     /// <inheritdoc />
     protected override async Task OnParametersSetAsync()
     {
+        // The copy feedback belongs to one member and address: another one drops it, and the answer of a copy still in flight.
+        var copyFor = Member.Id + "\n" + Member.FullAddress;
+        if (!string.Equals(_copyFor, copyFor, StringComparison.Ordinal))
+        {
+            _copyFor = copyFor;
+            DropCopy();
+        }
+
         if (Week is not null || Session is null || Member.Kind == MemberKind.Static || string.Equals(_loadedFor, Member.Id, StringComparison.Ordinal))
         {
             return;
@@ -250,21 +260,27 @@
         _lifetime.Dispose();
     }
 
-    // The answer of one copy, kept for the member and the address it was for: a different address (or member) shows no feedback.
-    private readonly record struct CopyResult(string MemberId, string Address, bool Accepted);
+    // Forgets the copy feedback and its reset, and makes the answer of any copy still in flight stale.
+    private void DropCopy()
+    {
+        _copyAttempt++;
+        _copyReset?.Cancel();
+        _copyReset?.Dispose();
+        _copyReset = null;
+        _copied = null;
+    }
 
     private async Task CopyAddressAsync()
     {
-        var memberId = Member.Id;
         var value = Member.FullAddress;
         if (string.IsNullOrWhiteSpace(value))
         {
             return;
         }
 
-        _copyReset?.Cancel();
-        _copyReset?.Dispose();
-        _copyReset = null;
+        // The newest click wins: an older copy that answers later is ignored.
+        DropCopy();
+        var attempt = _copyAttempt;
         var accepted = false;
         try
         {
@@ -277,16 +293,12 @@
             // No clipboard to reach: the copy failed, and the detail says so.
         }
 
-        if (_disposed)
+        if (_disposed || attempt != _copyAttempt)
         {
             return;
         }
 
-        // A copy that finished while this one was in flight may have started a reset of its own; this answer replaces it.
-        _copyReset?.Cancel();
-        _copyReset?.Dispose();
-        _copyReset = null;
-        _copy = new CopyResult(memberId, value, accepted);
+        _copied = accepted;
         if (accepted)
         {
             var reset = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
@@ -305,7 +317,7 @@
             {
                 if (!token.IsCancellationRequested)
                 {
-                    _copy = null;
+                    _copied = null;
                     StateHasChanged();
                 }
             });
