@@ -282,6 +282,10 @@
             return;
         }
 
+        // A copy that finished while this one was in flight may have started a reset of its own; this answer replaces it.
+        _copyReset?.Cancel();
+        _copyReset?.Dispose();
+        _copyReset = null;
         _copy = new CopyResult(memberId, value, accepted);
         if (accepted)
         {

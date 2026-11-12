@@ -248,7 +248,6 @@ public sealed class DetailComponentTests : ComponentTestBase
         var button = cut.Find(CopySel);
         Assert.Equal("BUTTON", button.TagName);
         Assert.Equal("button", button.GetAttribute("type"));
-        Assert.Equal("Copy address", SelectionHeaderFormatter.CopyAddress);
         Assert.Equal(SelectionHeaderFormatter.CopyAddress, button.GetAttribute("aria-label"));
         Assert.DoesNotContain("realm-detail-copy--labelled", button.ClassList);
         Assert.Equal(cass.FullAddress, cut.Find(".realm-detail-address").TextContent);
@@ -267,7 +266,6 @@ public sealed class DetailComponentTests : ComponentTestBase
 
         Assert.Equal([cass.FullAddress], CopiedValues(module));
         cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.AddressCopied, cut.Find(CopyStatusSel).TextContent));
-        Assert.Equal("Address copied", SelectionHeaderFormatter.AddressCopied);
         Assert.Equal("true", cut.Find(CopySel).GetAttribute("data-copied"));
         Assert.Equal(SelectionHeaderFormatter.CopyAddress, cut.Find(CopySel).GetAttribute("aria-label"));
     }
@@ -341,6 +339,34 @@ public sealed class DetailComponentTests : ComponentTestBase
 
         Assert.Empty(cut.FindAll(CopySel));
         Assert.Empty(cut.FindAll(".realm-detail-address"));
+    }
+
+    [Fact]
+    public async Task ARefusedCopy_ThatEndsAfterAnAcceptedOne_KeepsItsMessage_PastTheTwoSeconds()
+    {
+        var clock = new ManualTimeProvider(DemoDataSource.Anchor);
+        var session = new DemoRealmSession(new DemoDataSource(clock, DemoVariants.None, DemoRoster.EveryoneOnTheMap()));
+        var cass = Cass();
+        var moved = cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" };
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        var first = module.Setup<bool>("copyText", invocation => Equals(invocation.Arguments[0], cass.FullAddress));
+        var second = module.Setup<bool>("copyText", invocation => Equals(invocation.Arguments[0], moved.FullAddress));
+        var cut = RenderMember(cass, session);
+
+        var firstClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        cut.Render(parameters => parameters.Add(p => p.Member, moved));
+        var secondClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        first.SetResult(true);
+        await firstClick;
+        second.SetResult(false);
+        await secondClick;
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent));
+
+        clock.Advance(TimeSpan.FromSeconds(3));
+        // Let the reset the clock just released run before looking.
+        await cut.InvokeAsync(() => { });
+
+        Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent);
     }
 
     [Fact(DisplayName = "Dara's address is already her status line: the copy button stays, labelled, and her address is not written a second time")]

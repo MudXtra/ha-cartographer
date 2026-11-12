@@ -1179,8 +1179,11 @@ div[mudsheet] .mud-sheet-container.mud-sheet-position-bottom[data-testid="sheet"
   -webkit-tap-highlight-color: transparent;
 }
 
-.realm-detail-copy:hover {
-  background: var(--realm-surface-2);
+/* Hover only where there is a pointer that hovers: a tap on a phone would otherwise leave the background on. */
+@media (hover: hover) {
+  .realm-detail-copy:hover {
+    background: var(--realm-surface-2);
+  }
 }
 
 .realm-detail-copy:focus-visible {
