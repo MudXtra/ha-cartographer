@@ -419,6 +419,75 @@ export function readSheet() {
 
 // ---- S7b (selection header focus), S15 (HA bridge, clipboard) add their exports and state below this line ---------------------------------------
 
+// ---- clipboard (0.3.4): the person detail's Copy address button ------------------------------------------------------------------------------
+// Only the asynchronous Clipboard API, feature-detected: it needs a secure context, and the browser, a permission or an embedding WebView can still
+// refuse it. No execCommand fallback: a copy that does not happen is reported, and the address stays on screen to select by hand.
+// The write starts in the click itself (armCopy puts startCopy on the button, never on the document, D73): Safari and iOS WebViews refuse a write
+// that first waits for the server, because the user's gesture has expired by then. The .NET click handler then asks for that write's answer (takeCopy).
+
+/**
+ * Writes `text` to the clipboard. True only once the browser accepted it; false when there is no clipboard to write to or it refused. Never rejects.
+ * @param {unknown} text
+ * @param {{ writeText?: (text: string) => Promise<void> } | undefined} [clipboard] the browser's `navigator.clipboard` (the node tests pass a fake)
+ * @returns {Promise<boolean>}
+ */
+export async function copyText(text, clipboard = globalThis.navigator?.clipboard) {
+  if (typeof text !== 'string' || text.length === 0) return false;
+  if (typeof clipboard?.writeText !== 'function') return false;
+  try {
+    await clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** @type {WeakMap<Element, { text: string, result: Promise<boolean> }[]>} the writes started by clicks on each copy button, oldest first */
+const startedCopies = new WeakMap();
+
+/**
+ * A click listener: a click on a `[data-copy-text]` button starts writing that text at once, inside the user's gesture.
+ * @param {{ target?: unknown }} event
+ * @param {{ writeText?: (text: string) => Promise<void> } | undefined} [clipboard]
+ */
+export function startCopy(event, clipboard = globalThis.navigator?.clipboard) {
+  const target = /** @type {{ closest?: (selector: string) => Element | null }} */ (event?.target);
+  const button = typeof target?.closest === 'function' ? target.closest('[data-copy-text]') : null;
+  if (!button) return;
+  const text = button.getAttribute('data-copy-text') ?? '';
+  const started = startedCopies.get(button) ?? [];
+  started.push({ text, result: copyText(text, clipboard) });
+  startedCopies.set(button, started);
+}
+
+/** @type {WeakSet<Element>} */
+const armedCopyButtons = new WeakSet();
+
+/**
+ * Puts startCopy on a copy button, so its clicks write inside the user's gesture. A button already armed is left as it is.
+ * @param {Element | null | undefined} button
+ */
+export function armCopy(button) {
+  if (!button || typeof button.addEventListener !== 'function' || armedCopyButtons.has(button)) return;
+  armedCopyButtons.add(button);
+  button.addEventListener('click', (event) => startCopy(event));
+}
+
+/**
+ * The answer of the oldest write a click on `button` started. Null (stale, nothing written) when that write was for another text than `text` (the
+ * address changed under the click) or the button is gone; a button that started nothing (not armed yet) writes `text` now.
+ * @param {Element | null | undefined} button
+ * @param {unknown} text
+ * @param {{ writeText?: (text: string) => Promise<void> } | undefined} [clipboard]
+ * @returns {Promise<boolean | null>}
+ */
+export async function takeCopy(button, text, clipboard = globalThis.navigator?.clipboard) {
+  if (!button) return null;
+  const started = startedCopies.get(button)?.shift();
+  if (started) return started.text === text ? started.result : null;
+  return copyText(text, clipboard);
+}
+
 // ---- S8c: history depth tokens and Escape (03 sections 3.7 and 4.8, 01 sections 2.2 and 5.7) -----------------------------------------------------
 // One history entry per level of depth (`#r1`, `#r2`), so the Android Back gesture steps through the sheet and the overlays instead of leaving the app. C# decides the
 // depth and calls `history.setDepth(n)`; the script pushes the missing entries or goes back by the surplus, and tells C# about a Back (or Forward) it did not cause itself.

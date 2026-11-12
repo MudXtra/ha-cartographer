@@ -1140,6 +1140,82 @@ div[mudsheet] .mud-sheet-container.mud-sheet-position-bottom[data-testid="sheet"
   user-select: text;
 }
 
+/* The address and its Copy address button (0.3.4): a 48 px icon button at the end of the line; on a phone, and where the status line already says
+   the address, the button is on its own line with its label. The status after it is the polite live region of the copy. */
+.realm-detail-address-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  margin-top: 4px;
+}
+
+/* Sized to its text, so the button follows the address and the status after it never moves the button. */
+.realm-detail-address-row .realm-detail-address {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.realm-detail-copy {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 48px;
+  min-height: 48px;
+  margin: 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 24px;
+  background: none;
+  color: var(--realm-primary);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hover only where there is a pointer that hovers: a tap on a phone would otherwise leave the background on. */
+@media (hover: hover) {
+  .realm-detail-copy:hover {
+    background: var(--realm-surface-2);
+  }
+}
+
+.realm-detail-copy:focus-visible {
+  outline: 3px solid var(--realm-focus);
+  outline-offset: 2px;
+}
+
+.realm-detail-copy-label {
+  display: none;
+}
+
+.realm-detail-copy--labelled .realm-detail-copy-label {
+  display: inline;
+}
+
+.realm-detail-copy-status {
+  color: var(--realm-text-2);
+  font-size: 0.8125rem;
+  line-height: 20px;
+}
+
+@media (max-width: 599.98px) {
+  .realm-detail-address-row .realm-detail-address {
+    flex-basis: 100%;
+    margin-top: 8px;
+  }
+
+  .realm-detail-copy-label {
+    display: inline;
+  }
+}
+
 .realm-detail-chips {
   display: flex;
   flex-wrap: wrap;

@@ -157,6 +157,15 @@ public static class SelectionHeaderFormatter
     /// <summary>The detail's back button (01 sections 5.4 and 10.3).</summary>
     public const string BackLabel = "Back";
 
+    /// <summary>The name of the person detail's copy button for the full address (0.3.4), and its label where it stands alone.</summary>
+    public const string CopyAddress = "Copy address";
+
+    /// <summary>What the person detail says once the browser accepted the copied address (0.3.4).</summary>
+    public const string AddressCopied = "Address copied";
+
+    /// <summary>What the person detail says when the browser refused the copy (0.3.4): the address is then on screen to select.</summary>
+    public const string CopyAddressFailed = "Couldn't copy — select the address to copy";
+
     /// <summary>The heading of the person detail's week block (drawn in capitals by the style).</summary>
     public const string ThisWeek = "This week";
 

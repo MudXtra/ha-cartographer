@@ -1,11 +1,15 @@
 using System.Text.RegularExpressions;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using Realm.Demo;
 using Realm.Domain;
+using Realm.TestKit;
 using Realm.Web.Components.Sheet;
 using Realm.Web.Formatting;
 using Realm.Web.Sheet;
+using Realm.Web.Shell;
 using Xunit;
 
 namespace Realm.Web.Tests;
@@ -93,12 +97,13 @@ public sealed class DetailComponentTests : ComponentTestBase
     }
 
     [Fact]
-    public void Cass_HasNoTrailButton_AndNoTimeline_TheBackArrowIsTheOnlyButton()
+    public void Cass_HasNoTrailButton_AndNoTimeline_TheBackArrowAndCopyAddressAreTheOnlyButtons()
     {
         var cut = RenderMember(Cass(), Session);
 
-        var back = Assert.Single(cut.FindAll("button"));
-        Assert.Equal("detail-back", back.GetAttribute("data-testid"));
+        var buttons = cut.FindAll("button");
+        Assert.Equal(["detail-back", "detail-copy-address"], buttons.Select(button => button.GetAttribute("data-testid")));
+        var back = buttons[0];
         Assert.Equal(SelectionHeaderFormatter.BackLabel, back.GetAttribute("aria-label"));
         Assert.Equal("button", back.GetAttribute("type"));
     }
@@ -216,6 +221,254 @@ public sealed class DetailComponentTests : ComponentTestBase
         var cut = RenderMember(Cass() with { FullAddress = null });
 
         Assert.Empty(cut.FindAll(".realm-detail-address"));
+        Assert.Empty(cut.FindAll(CopySel));
+    }
+
+    // ---- copy the address (0.3.4) -------------------------------------------------------------------------------------------------------------
+
+    private const string CopySel = "[data-testid='detail-copy-address']";
+
+    private const string CopyStatusSel = "[data-testid='detail-copy-status']";
+
+    private BunitJSModuleInterop ClipboardAnswers(bool accepted)
+    {
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        module.Setup<bool?>("takeCopy", _ => true).SetResult(accepted);
+        return module;
+    }
+
+    private static IReadOnlyList<object?> CopiedValues(BunitJSModuleInterop module) =>
+        [.. module.Invocations.Where(invocation => invocation.Identifier == "takeCopy").Select(invocation => invocation.Arguments[1])];
+
+    [Fact]
+    public void TheAddress_HasACopyButton_NamedCopyAddress_AndStaysSelectableText()
+    {
+        var cass = Cass();
+        var cut = RenderMember(cass);
+
+        var button = cut.Find(CopySel);
+        Assert.Equal("BUTTON", button.TagName);
+        Assert.Equal("button", button.GetAttribute("type"));
+        Assert.Equal(SelectionHeaderFormatter.CopyAddress, button.GetAttribute("aria-label"));
+        Assert.DoesNotContain("realm-detail-copy--labelled", button.ClassList);
+        Assert.Equal(cass.FullAddress, button.GetAttribute("data-copy-text"));
+        Assert.Equal(cass.FullAddress, cut.Find(".realm-detail-address").TextContent);
+        Assert.Equal("status", cut.Find(CopyStatusSel).GetAttribute("role"));
+        Assert.Equal(string.Empty, cut.Find(CopyStatusSel).TextContent);
+    }
+
+    [Fact]
+    public void TheCopyButton_IsArmedOnce_SoTheBrowserWritesInTheClickItself()
+    {
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        module.SetupVoid("armCopy", _ => true);
+        var cut = RenderMember(Cass());
+
+        cut.Render();
+
+        var armed = Assert.Single(module.Invocations, invocation => invocation.Identifier == "armCopy");
+        Assert.Equal(cut.Find(CopySel).GetAttribute("blazor:elementReference"), Assert.IsType<ElementReference>(armed.Arguments[0]).Id);
+    }
+
+    [Fact]
+    public async Task ACopy_WritesTheFullAddress_AndSaysAddressCopied()
+    {
+        var cass = Cass();
+        var module = ClipboardAnswers(accepted: true);
+        var cut = RenderMember(cass);
+
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+
+        Assert.Equal([cass.FullAddress], CopiedValues(module));
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.AddressCopied, cut.Find(CopyStatusSel).TextContent));
+        Assert.Equal("true", cut.Find(CopySel).GetAttribute("data-copied"));
+        Assert.Equal(SelectionHeaderFormatter.CopyAddress, cut.Find(CopySel).GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public async Task TheCopiedFeedback_IsBrief_AndClearsAfterTwoSeconds()
+    {
+        var clock = new ManualTimeProvider(DemoDataSource.Anchor);
+        var session = new DemoRealmSession(new DemoDataSource(clock, DemoVariants.None, DemoRoster.EveryoneOnTheMap()));
+        ClipboardAnswers(accepted: true);
+        var cut = RenderMember(Cass(), session);
+
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.AddressCopied, cut.Find(CopyStatusSel).TextContent));
+
+        clock.Advance(TimeSpan.FromSeconds(1.9));
+        Assert.Equal(SelectionHeaderFormatter.AddressCopied, cut.Find(CopyStatusSel).TextContent);
+
+        clock.Advance(TimeSpan.FromSeconds(0.2));
+        cut.WaitForAssertion(() => Assert.Equal(string.Empty, cut.Find(CopyStatusSel).TextContent));
+        Assert.Null(cut.Find(CopySel).GetAttribute("data-copied"));
+    }
+
+    [Fact]
+    public async Task ARefusedCopy_SaysSo_AndPointsToTheSelectableAddress()
+    {
+        var cass = Cass();
+        ClipboardAnswers(accepted: false);
+        var cut = RenderMember(cass);
+
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent));
+        Assert.Null(cut.Find(CopySel).GetAttribute("data-copied"));
+        Assert.Equal(cass.FullAddress, Assert.Single(cut.FindAll(".realm-detail-address")).TextContent);
+    }
+
+    [Fact]
+    public async Task ACopyThatThrows_IsAFailure_NotASuccess()
+    {
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        module.Setup<bool?>("takeCopy", _ => true).SetException(new JSException("The clipboard is not available."));
+        var cut = RenderMember(Cass());
+
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent));
+        Assert.Null(cut.Find(CopySel).GetAttribute("data-copied"));
+    }
+
+    [Fact]
+    public async Task ANewAddress_DropsTheFeedbackOfTheOldOne_AndAnAddressThatGoesAway_TakesTheButton()
+    {
+        var cass = Cass();
+        var module = ClipboardAnswers(accepted: true);
+        var cut = RenderMember(cass);
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.AddressCopied, cut.Find(CopyStatusSel).TextContent));
+
+        var moved = cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" };
+        cut.Render(parameters => parameters.Add(p => p.Member, moved));
+
+        Assert.Equal(string.Empty, cut.Find(CopyStatusSel).TextContent);
+        Assert.Null(cut.Find(CopySel).GetAttribute("data-copied"));
+        Assert.Equal(moved.FullAddress, cut.Find(".realm-detail-address").TextContent);
+
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        Assert.Equal([cass.FullAddress, moved.FullAddress], CopiedValues(module));
+
+        cut.Render(parameters => parameters.Add(p => p.Member, cass with { FullAddress = "  " }));
+
+        Assert.Empty(cut.FindAll(CopySel));
+        Assert.Empty(cut.FindAll(".realm-detail-address"));
+    }
+
+    [Fact]
+    public async Task ARefusedCopy_ThatEndsAfterAnAcceptedOne_KeepsItsMessage_PastTheTwoSeconds()
+    {
+        var clock = new ManualTimeProvider(DemoDataSource.Anchor);
+        var session = new DemoRealmSession(new DemoDataSource(clock, DemoVariants.None, DemoRoster.EveryoneOnTheMap()));
+        var cass = Cass();
+        var moved = cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" };
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        var first = module.Setup<bool?>("takeCopy", invocation => Equals(invocation.Arguments[1], cass.FullAddress));
+        var second = module.Setup<bool?>("takeCopy", invocation => Equals(invocation.Arguments[1], moved.FullAddress));
+        var cut = RenderMember(cass, session);
+
+        var firstClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        cut.Render(parameters => parameters.Add(p => p.Member, moved));
+        var secondClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        first.SetResult(true);
+        await firstClick;
+        second.SetResult(false);
+        await secondClick;
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent));
+
+        clock.Advance(TimeSpan.FromSeconds(3));
+        // Let the reset the clock just released run before looking.
+        await cut.InvokeAsync(() => { });
+
+        Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent);
+    }
+
+    [Fact]
+    public async Task AnOlderCopy_ThatAnswersLast_DoesNotReplaceTheNewerAnswer()
+    {
+        var cass = Cass();
+        var moved = cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" };
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        var first = module.Setup<bool?>("takeCopy", invocation => Equals(invocation.Arguments[1], cass.FullAddress));
+        var second = module.Setup<bool?>("takeCopy", invocation => Equals(invocation.Arguments[1], moved.FullAddress));
+        var cut = RenderMember(cass);
+
+        var firstClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        cut.Render(parameters => parameters.Add(p => p.Member, moved));
+        var secondClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        second.SetResult(false);
+        await secondClick;
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent));
+        first.SetResult(true);
+        await firstClick;
+
+        Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent);
+        Assert.Null(cut.Find(CopySel).GetAttribute("data-copied"));
+        Assert.Equal(moved.FullAddress, Assert.Single(cut.FindAll(".realm-detail-address")).TextContent);
+    }
+
+    [Fact]
+    public async Task AStaleCopyAnswer_ChangesNoFeedback()
+    {
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        module.Setup<bool?>("takeCopy", _ => true).SetResult(null);
+        var cut = RenderMember(Cass());
+
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+
+        Assert.Equal(string.Empty, cut.Find(CopyStatusSel).TextContent);
+        Assert.Null(cut.Find(CopySel).GetAttribute("data-copied"));
+    }
+
+    [Fact]
+    public async Task ARefusedCopy_IsForgotten_WhenTheAddressChangesAndComesBack()
+    {
+        var cass = Cass();
+        ClipboardAnswers(accepted: false);
+        var cut = RenderMember(cass);
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent));
+
+        cut.Render(parameters => parameters.Add(p => p.Member, cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" }));
+        cut.Render(parameters => parameters.Add(p => p.Member, cass));
+
+        Assert.Equal(string.Empty, cut.Find(CopyStatusSel).TextContent);
+    }
+
+    [Fact(DisplayName = "Dara's address is already her status line: the copy button stays, labelled, and her address is not written a second time")]
+    public async Task AnAddressTheStatusLineAlreadySays_KeepsALabelledCopyButton_WithoutRepeatingIt()
+    {
+        var dara = MemberOf(DemoCast.Cryptid.Id);
+        var row = VmFactory.Member(dara, Facts);
+        var module = ClipboardAnswers(accepted: true);
+        var cut = RenderMember(dara);
+
+        Assert.Empty(cut.FindAll(".realm-detail-address"));
+        Assert.Equal(1, Count(cut, row.StatusLine));
+        var button = cut.Find(CopySel);
+        Assert.Contains("realm-detail-copy--labelled", button.ClassList);
+        Assert.Equal(SelectionHeaderFormatter.CopyAddress, button.GetAttribute("aria-label"));
+        Assert.Equal(SelectionHeaderFormatter.CopyAddress, button.TextContent.Trim());
+
+        await button.ClickAsync(new MouseEventArgs());
+
+        Assert.Equal([dara.FullAddress], CopiedValues(module));
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.AddressCopied, cut.Find(CopyStatusSel).TextContent));
+        Assert.Empty(cut.FindAll(".realm-detail-address"));
+    }
+
+    [Fact]
+    public async Task AnAddressTheStatusLineAlreadySays_IsShownSelectable_OnlyWhenTheCopyFails()
+    {
+        var dara = MemberOf(DemoCast.Cryptid.Id);
+        ClipboardAnswers(accepted: false);
+        var cut = RenderMember(dara);
+
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+
+        cut.WaitForAssertion(() => Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent));
+        Assert.Equal(dara.FullAddress, Assert.Single(cut.FindAll(".realm-detail-address")).TextContent);
     }
 
     // ---- nothing is said twice (D106) ------------------------------------------------------------------------------------------------------
@@ -248,7 +501,9 @@ public sealed class DetailComponentTests : ComponentTestBase
 
         Assert.Contains("on I-65", cut.Find(".realm-detail-status-line").TextContent, StringComparison.Ordinal);
         Assert.Empty(cut.FindAll(".realm-detail-address"));
-        Assert.Single(Regex.Matches(cut.Markup, "I-65"));
+        // Said once on screen; the copy button only carries the address for the clipboard.
+        Assert.Single(Regex.Matches(cut.Find(".realm-detail").TextContent, "I-65"));
+        Assert.Equal("I-65", Assert.Single(cut.FindAll(CopySel)).GetAttribute("data-copy-text"));
     }
 
     [Fact(DisplayName = "[AC-30k] A fresh member's status card says how fresh the fix is, once: after the drive on Briar's title, after the arrival time on Cass's line; a stale or static member gets none")]

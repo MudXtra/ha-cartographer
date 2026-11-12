@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.4
+
+### Added
+
+- **Copy address.** A person's detail has a copy button next to their address: one click or tap puts the full address on the
+  clipboard, and "Address copied" shows for two seconds. It is a real button named **Copy address** (Tab to it, then Enter or Space);
+  on a phone it sits under the address with its label. Where the status line already shows the address, the labelled button stands
+  alone so the address is not repeated. The address stays selectable as before. If the browser refuses the copy (some embedded or
+  non-HTTPS views do), the detail says so and leaves the address on screen to select. No button when there is no address.
+
 ## 0.3.3
 
 ### Changed

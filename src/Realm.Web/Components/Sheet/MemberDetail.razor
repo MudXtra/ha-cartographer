@@ -4,7 +4,9 @@
 @using Realm.Web.Formatting
 @using Realm.Web.Map
 @using Realm.Web.Sheet
+@using Realm.Web.Shell
 @inject ILogger<MemberDetail> Logger
+@inject IJSRuntime JS
 
 @* The person detail (01 section 5.4; 03 section 3.4): what the sheet shows at 80 percent with a member selected, and in the Expanded panel whenever one is. Shown by SheetContent from the
    body that BodyOf derives, never by this component's own judgement. A 48 px back button (the same step as the Android Back, BackStep.Detail: Peek with the selection kept), the 64 px
@@ -14,7 +16,9 @@
    (v1.1, 01 section 13). Every string comes from VmFactory and SelectionHeaderFormatter, the row's own, so the detail and its row agree.
    The History button (0.3.0) opens the person's Location History at /history/{id}; the static member has none. The week comes from the cascaded session (GetDriverWeekAsync, and the report's top speed), loaded when the member changes; the answer of a member that is no longer shown is dropped. A
    Week given as a parameter is shown as it is and nothing is loaded. A week that cannot be read leaves the tiles at "—". FocusOnOpen moves the focus to the back button once, when the
-   detail was opened with the handle or a tap on the header (01 section 10.2); a detail that appears because a pin was tapped in the panel leaves the focus where it is. *@
+   detail was opened with the handle or a tap on the header (01 section 10.2); a detail that appears because a pin was tapped in the panel leaves the focus where it is.
+   The Copy address button (0.3.4) copies the data layer's full address, never the text on screen: next to the address line, or labelled in its place when the status line already says the
+   same place, so the address is not written twice. "Address copied" shows for two seconds, and only after the browser accepted it; a refused copy says so and leaves the address there to select. *@
 @{
     var row = VmFactory.Member(Member, Facts);
     var isStatic = Member.Kind == MemberKind.Static || row.Status == MemberStatus.Static;
@@ -25,6 +29,8 @@
     var sentence = isStatic ? SelectionHeaderFormatter.StaticSentence(Member) : null;
     var card = SelectionHeaderFormatter.MemberCard(Member, row, Facts);
     var address = SelectionHeaderFormatter.MemberAddress(Member, row.StatusLine);
+    var copyValue = string.IsNullOrWhiteSpace(Member.FullAddress) ? null : Member.FullAddress;
+    var copied = _copied;
     var colorStyle = row.Color is { } hex ? "--realm-row-color:" + hex : null;
 }
 <section class="realm-detail realm-detail--member" aria-labelledby="realm-detail-title" aria-describedby="realm-detail-status">
@@ -107,9 +113,27 @@
                 }
             </div>
         }
-        @if (address is not null)
+        @if (copyValue is not null)
         {
-            <p class="realm-detail-address">@address</p>
+            <div class="realm-detail-address-row">
+                @if (address is not null || copied == false)
+                {
+                    <p class="realm-detail-address">@copyValue</p>
+                }
+                <button type="button"
+                        @ref="_copyButton"
+                        class="@(address is null ? "realm-detail-copy realm-detail-copy--labelled" : "realm-detail-copy")"
+                        data-testid="detail-copy-address"
+                        data-copied="@(copied == true ? "true" : null)"
+                        data-copy-text="@copyValue"
+                        aria-label="@SelectionHeaderFormatter.CopyAddress"
+                        title="@SelectionHeaderFormatter.CopyAddress"
+                        @onclick="CopyAddressAsync">
+                    <MudIcon Icon="@(copied == true ? Icons.Material.Filled.Check : Icons.Material.Filled.ContentCopy)" />
+                    <span class="realm-detail-copy-label">@SelectionHeaderFormatter.CopyAddress</span>
+                </button>
+                <span class="realm-detail-copy-status" role="status" data-testid="detail-copy-status">@(copied switch { true => SelectionHeaderFormatter.AddressCopied, false => SelectionHeaderFormatter.CopyAddressFailed, _ => null })</span>
+            </div>
         }
         @if (!isStatic)
         {
@@ -148,6 +172,15 @@
     private double? _topSpeedMps;
     private string? _loadedFor;
     private bool _disposed;
+    private bool? _copied;
+    private CancellationTokenSource? _copyReset;
+    private int _copyAttempt;
+    private string? _copyFor;
+    private ElementReference _copyButton;
+    private string? _armedCopyButton;
+
+    // How long "Address copied" shows.
+    private static readonly TimeSpan CopiedFor = TimeSpan.FromSeconds(2);
 
     /// <summary>The person shown.</summary>
     [Parameter, EditorRequired]
@@ -184,6 +217,14 @@
     /// <inheritdoc />
     protected override async Task OnParametersSetAsync()
     {
+        // The copy feedback belongs to one member and address: another one drops it, and the answer of a copy still in flight.
+        var copyFor = Member.Id + "\n" + Member.FullAddress;
+        if (!string.Equals(_copyFor, copyFor, StringComparison.Ordinal))
+        {
+            _copyFor = copyFor;
+            DropCopy();
+        }
+
         if (Week is not null || Session is null || Member.Kind == MemberKind.Static || string.Equals(_loadedFor, Member.Id, StringComparison.Ordinal))
         {
             return;
@@ -198,18 +239,39 @@
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !FocusOnOpen)
+        if (firstRender && FocusOnOpen)
+        {
+            try
+            {
+                await _back.FocusAsync();
+            }
+            catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+            {
+                // A circuit that is gone, or a detail that has already closed: there is nothing to focus.
+            }
+        }
+
+        await ArmCopyAsync();
+    }
+
+    // Each new Copy address button is armed once (realmShell.js armCopy), so the browser starts the write in the click itself: Safari refuses one that waits for the server.
+    private async Task ArmCopyAsync()
+    {
+        var id = _copyButton.Id;
+        if (id is null || string.Equals(id, _armedCopyButton, StringComparison.Ordinal))
         {
             return;
         }
 
+        _armedCopyButton = id;
         try
         {
-            await _back.FocusAsync();
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", ShellInterop.ModulePath);
+            await module.InvokeVoidAsync("armCopy", _copyButton);
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
         {
-            // A circuit that is gone, or a detail that has already closed: there is nothing to focus.
+            // Not armed: a click still copies, through the server, which Safari may refuse; the detail then says so.
         }
     }
 
@@ -219,7 +281,82 @@
         _disposed = true;
         _lifetime.Cancel();
         _load?.Dispose();
+        _copyReset?.Dispose();
         _lifetime.Dispose();
+    }
+
+    // Forgets the copy feedback and its reset, and makes the answer of any copy still in flight stale.
+    private void DropCopy()
+    {
+        _copyAttempt++;
+        _copyReset?.Cancel();
+        _copyReset?.Dispose();
+        _copyReset = null;
+        _copied = null;
+    }
+
+    private async Task CopyAddressAsync()
+    {
+        var value = Member.FullAddress;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        // The newest click wins: an older copy that answers later is ignored.
+        DropCopy();
+        var attempt = _copyAttempt;
+        bool? accepted = false;
+        try
+        {
+            // The same module URL as ShellInterop's: the browser holds one instance of it.
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", ShellInterop.ModulePath);
+            // The armed button started the write in the click itself (realmShell.js startCopy); this asks for its answer.
+            accepted = await module.InvokeAsync<bool?>("takeCopy", _copyButton, value);
+        }
+        catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+        {
+            // No clipboard to reach: the copy failed, and the detail says so.
+        }
+
+        // Null: the click wrote an address that has changed since, or the button is gone; that answer belongs to nothing on screen.
+        if (_disposed || attempt != _copyAttempt || accepted is null)
+        {
+            return;
+        }
+
+        _copied = accepted;
+        if (accepted == true)
+        {
+            var reset = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+            _copyReset = reset;
+            _ = ClearCopiedAsync(reset.Token);
+        }
+    }
+
+    // "Address copied" is brief: it goes after CopiedFor, on the session's clock, unless another copy or the end of the detail cancels it first.
+    private async Task ClearCopiedAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(CopiedFor, Session?.Time ?? TimeProvider.System, token);
+            await InvokeAsync(() =>
+            {
+                if (!token.IsCancellationRequested)
+                {
+                    _copied = null;
+                    StateHasChanged();
+                }
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // Replaced by a newer copy, or the detail closed.
+        }
+        catch (ObjectDisposedException)
+        {
+            // The renderer is gone with the detail.
+        }
     }
 
     // One load at a time: a newer one (another member) cancels the one in flight, whose answer is then dropped.
