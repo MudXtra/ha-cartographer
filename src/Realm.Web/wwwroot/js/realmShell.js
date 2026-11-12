@@ -474,15 +474,17 @@ export function armCopy(button) {
 }
 
 /**
- * The answer of the oldest write a click on `button` started, when it was for `text`; without one (no listener, another text) it writes now.
+ * The answer of the oldest write a click on `button` started. Null (stale, nothing written) when that write was for another text than `text` (the
+ * address changed under the click) or the button is gone; a button that started nothing (not armed yet) writes `text` now.
  * @param {Element | null | undefined} button
  * @param {unknown} text
  * @param {{ writeText?: (text: string) => Promise<void> } | undefined} [clipboard]
- * @returns {Promise<boolean>}
+ * @returns {Promise<boolean | null>}
  */
 export async function takeCopy(button, text, clipboard = globalThis.navigator?.clipboard) {
-  const started = button ? startedCopies.get(button)?.shift() : undefined;
-  if (started && started.text === text) return started.result;
+  if (!button) return null;
+  const started = startedCopies.get(button)?.shift();
+  if (started) return started.text === text ? started.result : null;
   return copyText(text, clipboard);
 }
 

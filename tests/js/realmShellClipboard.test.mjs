@@ -87,13 +87,20 @@ test('takeCopy gives a refused write\'s answer, and answers each click once, old
   assert.equal(await takeCopy(button, ADDRESS, fakeClipboard()), true);
 });
 
-test('takeCopy writes now when no click started a write, or the click was for another text', async () => {
+test('takeCopy writes now for a button whose click started nothing (not armed yet)', async () => {
+  const clipboard = fakeClipboard();
+  const { button } = clickOn(ADDRESS);
+  assert.equal(await takeCopy(button, ADDRESS, clipboard), true);
+  assert.deepEqual(clipboard.written, [ADDRESS]);
+});
+
+test('takeCopy says null and writes nothing when the click wrote another address, or the button is gone', async () => {
   const clipboard = fakeClipboard();
   const { button, event } = clickOn('somewhere else');
-  assert.equal(await takeCopy(button, ADDRESS, clipboard), true);
   startCopy(event, fakeClipboard());
-  assert.equal(await takeCopy(button, ADDRESS, clipboard), true);
-  assert.deepEqual(clipboard.written, [ADDRESS, ADDRESS]);
+  assert.equal(await takeCopy(button, ADDRESS, clipboard), null);
+  assert.equal(await takeCopy(null, ADDRESS, clipboard), null);
+  assert.deepEqual(clipboard.written, []);
 });
 
 test('startCopy ignores a click outside a copy button', () => {

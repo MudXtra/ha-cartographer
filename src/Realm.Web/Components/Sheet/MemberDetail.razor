@@ -306,26 +306,27 @@
         // The newest click wins: an older copy that answers later is ignored.
         DropCopy();
         var attempt = _copyAttempt;
-        var accepted = false;
+        bool? accepted = false;
         try
         {
             // The same module URL as ShellInterop's: the browser holds one instance of it.
             await using var module = await JS.InvokeAsync<IJSObjectReference>("import", ShellInterop.ModulePath);
             // The armed button started the write in the click itself (realmShell.js startCopy); this asks for its answer.
-            accepted = await module.InvokeAsync<bool>("takeCopy", _copyButton, value);
+            accepted = await module.InvokeAsync<bool?>("takeCopy", _copyButton, value);
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
         {
             // No clipboard to reach: the copy failed, and the detail says so.
         }
 
-        if (_disposed || attempt != _copyAttempt)
+        // Null: the click wrote an address that has changed since, or the button is gone; that answer belongs to nothing on screen.
+        if (_disposed || attempt != _copyAttempt || accepted is null)
         {
             return;
         }
 
         _copied = accepted;
-        if (accepted)
+        if (accepted == true)
         {
             var reset = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
             _copyReset = reset;

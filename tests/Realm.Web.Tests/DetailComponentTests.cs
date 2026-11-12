@@ -233,7 +233,7 @@ public sealed class DetailComponentTests : ComponentTestBase
     private BunitJSModuleInterop ClipboardAnswers(bool accepted)
     {
         var module = JSInterop.SetupModule(ShellInterop.ModulePath);
-        module.Setup<bool>("takeCopy", _ => true).SetResult(accepted);
+        module.Setup<bool?>("takeCopy", _ => true).SetResult(accepted);
         return module;
     }
 
@@ -322,7 +322,7 @@ public sealed class DetailComponentTests : ComponentTestBase
     public async Task ACopyThatThrows_IsAFailure_NotASuccess()
     {
         var module = JSInterop.SetupModule(ShellInterop.ModulePath);
-        module.Setup<bool>("takeCopy", _ => true).SetException(new JSException("The clipboard is not available."));
+        module.Setup<bool?>("takeCopy", _ => true).SetException(new JSException("The clipboard is not available."));
         var cut = RenderMember(Cass());
 
         await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
@@ -364,8 +364,8 @@ public sealed class DetailComponentTests : ComponentTestBase
         var cass = Cass();
         var moved = cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" };
         var module = JSInterop.SetupModule(ShellInterop.ModulePath);
-        var first = module.Setup<bool>("takeCopy", invocation => Equals(invocation.Arguments[1], cass.FullAddress));
-        var second = module.Setup<bool>("takeCopy", invocation => Equals(invocation.Arguments[1], moved.FullAddress));
+        var first = module.Setup<bool?>("takeCopy", invocation => Equals(invocation.Arguments[1], cass.FullAddress));
+        var second = module.Setup<bool?>("takeCopy", invocation => Equals(invocation.Arguments[1], moved.FullAddress));
         var cut = RenderMember(cass, session);
 
         var firstClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
@@ -390,8 +390,8 @@ public sealed class DetailComponentTests : ComponentTestBase
         var cass = Cass();
         var moved = cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" };
         var module = JSInterop.SetupModule(ShellInterop.ModulePath);
-        var first = module.Setup<bool>("takeCopy", invocation => Equals(invocation.Arguments[1], cass.FullAddress));
-        var second = module.Setup<bool>("takeCopy", invocation => Equals(invocation.Arguments[1], moved.FullAddress));
+        var first = module.Setup<bool?>("takeCopy", invocation => Equals(invocation.Arguments[1], cass.FullAddress));
+        var second = module.Setup<bool?>("takeCopy", invocation => Equals(invocation.Arguments[1], moved.FullAddress));
         var cut = RenderMember(cass);
 
         var firstClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
@@ -406,6 +406,19 @@ public sealed class DetailComponentTests : ComponentTestBase
         Assert.Equal(SelectionHeaderFormatter.CopyAddressFailed, cut.Find(CopyStatusSel).TextContent);
         Assert.Null(cut.Find(CopySel).GetAttribute("data-copied"));
         Assert.Equal(moved.FullAddress, Assert.Single(cut.FindAll(".realm-detail-address")).TextContent);
+    }
+
+    [Fact]
+    public async Task AStaleCopyAnswer_ChangesNoFeedback()
+    {
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        module.Setup<bool?>("takeCopy", _ => true).SetResult(null);
+        var cut = RenderMember(Cass());
+
+        await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
+
+        Assert.Equal(string.Empty, cut.Find(CopyStatusSel).TextContent);
+        Assert.Null(cut.Find(CopySel).GetAttribute("data-copied"));
     }
 
     [Fact]
