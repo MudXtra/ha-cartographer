@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using Realm.Demo;
@@ -232,12 +233,12 @@ public sealed class DetailComponentTests : ComponentTestBase
     private BunitJSModuleInterop ClipboardAnswers(bool accepted)
     {
         var module = JSInterop.SetupModule(ShellInterop.ModulePath);
-        module.Setup<bool>("copyText", _ => true).SetResult(accepted);
+        module.Setup<bool>("takeCopy", _ => true).SetResult(accepted);
         return module;
     }
 
     private static IReadOnlyList<object?> CopiedValues(BunitJSModuleInterop module) =>
-        [.. module.Invocations.Where(invocation => invocation.Identifier == "copyText").Select(invocation => Assert.Single(invocation.Arguments))];
+        [.. module.Invocations.Where(invocation => invocation.Identifier == "takeCopy").Select(invocation => invocation.Arguments[1])];
 
     [Fact]
     public void TheAddress_HasACopyButton_NamedCopyAddress_AndStaysSelectableText()
@@ -250,9 +251,23 @@ public sealed class DetailComponentTests : ComponentTestBase
         Assert.Equal("button", button.GetAttribute("type"));
         Assert.Equal(SelectionHeaderFormatter.CopyAddress, button.GetAttribute("aria-label"));
         Assert.DoesNotContain("realm-detail-copy--labelled", button.ClassList);
+        Assert.Equal(cass.FullAddress, button.GetAttribute("data-copy-text"));
         Assert.Equal(cass.FullAddress, cut.Find(".realm-detail-address").TextContent);
         Assert.Equal("status", cut.Find(CopyStatusSel).GetAttribute("role"));
         Assert.Equal(string.Empty, cut.Find(CopyStatusSel).TextContent);
+    }
+
+    [Fact]
+    public void TheCopyButton_IsArmedOnce_SoTheBrowserWritesInTheClickItself()
+    {
+        var module = JSInterop.SetupModule(ShellInterop.ModulePath);
+        module.SetupVoid("armCopy", _ => true);
+        var cut = RenderMember(Cass());
+
+        cut.Render();
+
+        var armed = Assert.Single(module.Invocations, invocation => invocation.Identifier == "armCopy");
+        Assert.Equal(cut.Find(CopySel).GetAttribute("blazor:elementReference"), Assert.IsType<ElementReference>(armed.Arguments[0]).Id);
     }
 
     [Fact]
@@ -307,7 +322,7 @@ public sealed class DetailComponentTests : ComponentTestBase
     public async Task ACopyThatThrows_IsAFailure_NotASuccess()
     {
         var module = JSInterop.SetupModule(ShellInterop.ModulePath);
-        module.Setup<bool>("copyText", _ => true).SetException(new JSException("The clipboard is not available."));
+        module.Setup<bool>("takeCopy", _ => true).SetException(new JSException("The clipboard is not available."));
         var cut = RenderMember(Cass());
 
         await cut.Find(CopySel).ClickAsync(new MouseEventArgs());
@@ -349,8 +364,8 @@ public sealed class DetailComponentTests : ComponentTestBase
         var cass = Cass();
         var moved = cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" };
         var module = JSInterop.SetupModule(ShellInterop.ModulePath);
-        var first = module.Setup<bool>("copyText", invocation => Equals(invocation.Arguments[0], cass.FullAddress));
-        var second = module.Setup<bool>("copyText", invocation => Equals(invocation.Arguments[0], moved.FullAddress));
+        var first = module.Setup<bool>("takeCopy", invocation => Equals(invocation.Arguments[1], cass.FullAddress));
+        var second = module.Setup<bool>("takeCopy", invocation => Equals(invocation.Arguments[1], moved.FullAddress));
         var cut = RenderMember(cass, session);
 
         var firstClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
@@ -375,8 +390,8 @@ public sealed class DetailComponentTests : ComponentTestBase
         var cass = Cass();
         var moved = cass with { FullAddress = "7 Tidewater Lane, Pinebrook, AL" };
         var module = JSInterop.SetupModule(ShellInterop.ModulePath);
-        var first = module.Setup<bool>("copyText", invocation => Equals(invocation.Arguments[0], cass.FullAddress));
-        var second = module.Setup<bool>("copyText", invocation => Equals(invocation.Arguments[0], moved.FullAddress));
+        var first = module.Setup<bool>("takeCopy", invocation => Equals(invocation.Arguments[1], cass.FullAddress));
+        var second = module.Setup<bool>("takeCopy", invocation => Equals(invocation.Arguments[1], moved.FullAddress));
         var cut = RenderMember(cass);
 
         var firstClick = cut.Find(CopySel).ClickAsync(new MouseEventArgs());
@@ -473,8 +488,9 @@ public sealed class DetailComponentTests : ComponentTestBase
 
         Assert.Contains("on I-65", cut.Find(".realm-detail-status-line").TextContent, StringComparison.Ordinal);
         Assert.Empty(cut.FindAll(".realm-detail-address"));
-        Assert.Single(Regex.Matches(cut.Markup, "I-65"));
-        Assert.Single(cut.FindAll(CopySel));
+        // Said once on screen; the copy button only carries the address for the clipboard.
+        Assert.Single(Regex.Matches(cut.Find(".realm-detail").TextContent, "I-65"));
+        Assert.Equal("I-65", Assert.Single(cut.FindAll(CopySel)).GetAttribute("data-copy-text"));
     }
 
     [Fact(DisplayName = "[AC-30k] A fresh member's status card says how fresh the fix is, once: after the drive on Briar's title, after the arrival time on Cass's line; a stale or static member gets none")]

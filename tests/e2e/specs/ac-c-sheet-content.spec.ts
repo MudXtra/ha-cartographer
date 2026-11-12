@@ -499,8 +499,20 @@ test.describe('S8c: selecting from the lists', () => {
     await page.keyboard.press('Tab');
     await expect(copy, 'Tab after the back arrow reaches Copy address').toBeFocused();
 
+    // The write must start inside the key's click, not after a server round trip: Safari and iOS WebViews refuse a write once the gesture is over.
+    await page.evaluate(() => {
+      const clipboard = navigator.clipboard;
+      const write = clipboard.writeText.bind(clipboard);
+      const seen: (string | null)[] = [];
+      (window as unknown as { copyEvents: (string | null)[] }).copyEvents = seen;
+      clipboard.writeText = (text: string) => {
+        seen.push(window.event?.type ?? null);
+        return write(text);
+      };
+    });
     await page.keyboard.press('Enter');
     await expect(status, 'Enter copies').toHaveText('Address copied');
+    expect(await page.evaluate(() => (window as unknown as { copyEvents: (string | null)[] }).copyEvents), 'the write started in the click').toEqual(['click']);
     expect(await page.evaluate(() => navigator.clipboard.readText()), 'the clipboard holds the full address').toBe(jester.address);
     await expect(copy, 'the focus stays on the button').toBeFocused();
     await expect(status, 'the feedback is brief').toHaveText('', { timeout: 5_000 });

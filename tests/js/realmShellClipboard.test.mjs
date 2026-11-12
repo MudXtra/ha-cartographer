@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { copyText } from '../../src/Realm.Web/wwwroot/js/realmShell.js';
+import { armCopy, copyText, startCopy, takeCopy } from '../../src/Realm.Web/wwwroot/js/realmShell.js';
 
 const ADDRESS = '123 Eastgate Ave, Pinebrook, AL';
 
@@ -59,4 +59,56 @@ test('copyText reads navigator.clipboard when no clipboard is passed, and says f
     if (had) Object.defineProperty(globalThis, 'navigator', had);
     else delete globalThis.navigator;
   }
+});
+
+/** A copy button that carries `text`, and a click event on it. */
+function clickOn(text) {
+  const button = { getAttribute: (/** @type {string} */ name) => (name === 'data-copy-text' ? text : null) };
+  return { button, event: { target: { closest: () => button } } };
+}
+
+test('startCopy writes during the click itself, and takeCopy gives that write\'s answer', async () => {
+  const clipboard = fakeClipboard();
+  const { button, event } = clickOn(ADDRESS);
+  startCopy(event, clipboard);
+  assert.deepEqual(clipboard.written, [ADDRESS], 'written before anything was awaited');
+
+  const later = fakeClipboard();
+  assert.equal(await takeCopy(button, ADDRESS, later), true);
+  assert.deepEqual(later.written, [], 'no second write');
+});
+
+test('takeCopy gives a refused write\'s answer, and answers each click once, oldest first', async () => {
+  const refusing = fakeClipboard(true);
+  const { button, event } = clickOn(ADDRESS);
+  startCopy(event, refusing);
+  startCopy(event, fakeClipboard());
+  assert.equal(await takeCopy(button, ADDRESS, fakeClipboard()), false);
+  assert.equal(await takeCopy(button, ADDRESS, fakeClipboard()), true);
+});
+
+test('takeCopy writes now when no click started a write, or the click was for another text', async () => {
+  const clipboard = fakeClipboard();
+  const { button, event } = clickOn('somewhere else');
+  assert.equal(await takeCopy(button, ADDRESS, clipboard), true);
+  startCopy(event, fakeClipboard());
+  assert.equal(await takeCopy(button, ADDRESS, clipboard), true);
+  assert.deepEqual(clipboard.written, [ADDRESS, ADDRESS]);
+});
+
+test('startCopy ignores a click outside a copy button', () => {
+  const clipboard = fakeClipboard();
+  startCopy({ target: { closest: () => null } }, clipboard);
+  startCopy({ target: null }, clipboard);
+  assert.deepEqual(clipboard.written, []);
+});
+
+test('armCopy puts one click listener on the button, however often it is called', () => {
+  /** @type {string[]} */
+  const added = [];
+  const button = { addEventListener: (/** @type {string} */ type) => added.push(type) };
+  armCopy(/** @type {any} */ (button));
+  armCopy(/** @type {any} */ (button));
+  armCopy(null);
+  assert.deepEqual(added, ['click']);
 });

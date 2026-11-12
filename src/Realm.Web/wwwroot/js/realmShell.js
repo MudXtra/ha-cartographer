@@ -422,6 +422,8 @@ export function readSheet() {
 // ---- clipboard (0.3.4): the person detail's Copy address button ------------------------------------------------------------------------------
 // Only the asynchronous Clipboard API, feature-detected: it needs a secure context, and the browser, a permission or an embedding WebView can still
 // refuse it. No execCommand fallback: a copy that does not happen is reported, and the address stays on screen to select by hand.
+// The write starts in the click itself (armCopy puts startCopy on the button, never on the document, D73): Safari and iOS WebViews refuse a write
+// that first waits for the server, because the user's gesture has expired by then. The .NET click handler then asks for that write's answer (takeCopy).
 
 /**
  * Writes `text` to the clipboard. True only once the browser accepted it; false when there is no clipboard to write to or it refused. Never rejects.
@@ -438,6 +440,50 @@ export async function copyText(text, clipboard = globalThis.navigator?.clipboard
   } catch {
     return false;
   }
+}
+
+/** @type {WeakMap<Element, { text: string, result: Promise<boolean> }[]>} the writes started by clicks on each copy button, oldest first */
+const startedCopies = new WeakMap();
+
+/**
+ * A click listener: a click on a `[data-copy-text]` button starts writing that text at once, inside the user's gesture.
+ * @param {{ target?: unknown }} event
+ * @param {{ writeText?: (text: string) => Promise<void> } | undefined} [clipboard]
+ */
+export function startCopy(event, clipboard = globalThis.navigator?.clipboard) {
+  const target = /** @type {{ closest?: (selector: string) => Element | null }} */ (event?.target);
+  const button = typeof target?.closest === 'function' ? target.closest('[data-copy-text]') : null;
+  if (!button) return;
+  const text = button.getAttribute('data-copy-text') ?? '';
+  const started = startedCopies.get(button) ?? [];
+  started.push({ text, result: copyText(text, clipboard) });
+  startedCopies.set(button, started);
+}
+
+/** @type {WeakSet<Element>} */
+const armedCopyButtons = new WeakSet();
+
+/**
+ * Puts startCopy on a copy button, so its clicks write inside the user's gesture. A button already armed is left as it is.
+ * @param {Element | null | undefined} button
+ */
+export function armCopy(button) {
+  if (!button || typeof button.addEventListener !== 'function' || armedCopyButtons.has(button)) return;
+  armedCopyButtons.add(button);
+  button.addEventListener('click', (event) => startCopy(event));
+}
+
+/**
+ * The answer of the oldest write a click on `button` started, when it was for `text`; without one (no listener, another text) it writes now.
+ * @param {Element | null | undefined} button
+ * @param {unknown} text
+ * @param {{ writeText?: (text: string) => Promise<void> } | undefined} [clipboard]
+ * @returns {Promise<boolean>}
+ */
+export async function takeCopy(button, text, clipboard = globalThis.navigator?.clipboard) {
+  const started = button ? startedCopies.get(button)?.shift() : undefined;
+  if (started && started.text === text) return started.result;
+  return copyText(text, clipboard);
 }
 
 // ---- S8c: history depth tokens and Escape (03 sections 3.7 and 4.8, 01 sections 2.2 and 5.7) -----------------------------------------------------

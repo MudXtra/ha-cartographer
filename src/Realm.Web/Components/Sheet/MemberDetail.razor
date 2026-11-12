@@ -121,9 +121,11 @@
                     <p class="realm-detail-address">@copyValue</p>
                 }
                 <button type="button"
+                        @ref="_copyButton"
                         class="@(address is null ? "realm-detail-copy realm-detail-copy--labelled" : "realm-detail-copy")"
                         data-testid="detail-copy-address"
                         data-copied="@(copied == true ? "true" : null)"
+                        data-copy-text="@copyValue"
                         aria-label="@SelectionHeaderFormatter.CopyAddress"
                         title="@SelectionHeaderFormatter.CopyAddress"
                         @onclick="CopyAddressAsync">
@@ -174,6 +176,8 @@
     private CancellationTokenSource? _copyReset;
     private int _copyAttempt;
     private string? _copyFor;
+    private ElementReference _copyButton;
+    private string? _armedCopyButton;
 
     // How long "Address copied" shows.
     private static readonly TimeSpan CopiedFor = TimeSpan.FromSeconds(2);
@@ -235,18 +239,39 @@
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !FocusOnOpen)
+        if (firstRender && FocusOnOpen)
+        {
+            try
+            {
+                await _back.FocusAsync();
+            }
+            catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
+            {
+                // A circuit that is gone, or a detail that has already closed: there is nothing to focus.
+            }
+        }
+
+        await ArmCopyAsync();
+    }
+
+    // Each new Copy address button is armed once (realmShell.js armCopy), so the browser starts the write in the click itself: Safari refuses one that waits for the server.
+    private async Task ArmCopyAsync()
+    {
+        var id = _copyButton.Id;
+        if (id is null || string.Equals(id, _armedCopyButton, StringComparison.Ordinal))
         {
             return;
         }
 
+        _armedCopyButton = id;
         try
         {
-            await _back.FocusAsync();
+            await using var module = await JS.InvokeAsync<IJSObjectReference>("import", ShellInterop.ModulePath);
+            await module.InvokeVoidAsync("armCopy", _copyButton);
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
         {
-            // A circuit that is gone, or a detail that has already closed: there is nothing to focus.
+            // Not armed: a click still copies, through the server, which Safari may refuse; the detail then says so.
         }
     }
 
@@ -286,7 +311,8 @@
         {
             // The same module URL as ShellInterop's: the browser holds one instance of it.
             await using var module = await JS.InvokeAsync<IJSObjectReference>("import", ShellInterop.ModulePath);
-            accepted = await module.InvokeAsync<bool>("copyText", value);
+            // The armed button started the write in the click itself (realmShell.js startCopy); this asks for its answer.
+            accepted = await module.InvokeAsync<bool>("takeCopy", _copyButton, value);
         }
         catch (Exception exception) when (exception is JSException or JSDisconnectedException or InvalidOperationException or TaskCanceledException)
         {
